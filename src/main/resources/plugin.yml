@@ -1,0 +1,4 @@
+name: Knockdown
+version: '${project.version}'
+main: jp.houlab.mochidsuki.knockdown.Main
+api-version: '1.20'
