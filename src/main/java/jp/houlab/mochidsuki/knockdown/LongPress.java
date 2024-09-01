@@ -1,6 +1,7 @@
 package jp.houlab.mochidsuki.knockdown;
 
 
+import net.kyori.adventure.sound.SoundStop;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -8,6 +9,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.potion.PotionEffect;
@@ -33,6 +35,7 @@ public class LongPress extends BukkitRunnable {
         item = i;
         time = ti;
         fenixPlayer = player1;
+        player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_ACTIVATE,1f, (float) 2);
     }
 
     @Override
@@ -43,6 +46,7 @@ public class LongPress extends BukkitRunnable {
             player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 2, 200, true, false));
             fenixPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 2, 10, true, false));
             fenixPlayer.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 2, 200, true, false));
+            player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_AMBIENT,0.5f, (float) 2);
             String bar = String.join("", Collections.nCopies((int) (use / time * 10), "■"));
             String barM = String.join("", Collections.nCopies((int) ((time - use) / time * 10), "-"));
             String half;
@@ -63,6 +67,8 @@ public class LongPress extends BukkitRunnable {
                 fenixPlayer.removePotionEffect(PotionEffectType.HEALTH_BOOST);
                 fenixPlayer.setHealth(2);
                 fenixPlayer.setFoodLevel(10);
+                player.getLocation().getWorld().stopSound(SoundStop.named(Sound.BLOCK_BEACON_AMBIENT));
+                player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT,1f, (float) 2);
                 for(int i = 0; i < V.knockDownBU.get(fenixPlayer).length; i++){
                     fenixPlayer.getInventory().setItem(i,V.knockDownBU.get(fenixPlayer)[i]);
                 }
@@ -73,9 +79,12 @@ public class LongPress extends BukkitRunnable {
                         }
                     }
                 }
+                fenixPlayer.setSneaking(false);
                 cancel();
             }
         } else {
+            player.getLocation().getWorld().stopSound(SoundStop.named(Sound.BLOCK_BEACON_AMBIENT));
+            player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE,1f, (float) 2);
             use = 0;
             cancel();
         }
