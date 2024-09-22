@@ -1,6 +1,7 @@
 package jp.houlab.mochidsuki.knockdown;
 
 import org.bukkit.*;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -21,35 +22,58 @@ import org.bukkit.scoreboard.Team;
 
 import javax.annotation.Nullable;
 import java.util.HashSet;
+import java.util.List;
 
 import static jp.houlab.mochidsuki.knockdown.Main.plugin;
 
+
+/**
+ * イベントリスナー
+ */
 public class Listener implements org.bukkit.event.Listener {
 
+    /**
+     * 蘇生を開始する
+     * @param event イベント
+     */
     @EventHandler
     public void PlayerInteractEntityEvent(PlayerInteractEntityEvent event){
         if(event.getRightClicked().getType() == EntityType.PLAYER) {
             Team team = event.getPlayer().getScoreboard().getPlayerTeam(event.getPlayer());
 
             if (team.hasPlayer((OfflinePlayer) event.getRightClicked()) && event.getPlayer().getLocation().distance(event.getRightClicked().getLocation()) < 2 && ((Player)event.getRightClicked()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer().hasPotionEffect(PotionEffectType.SLOW))) {
-                new LongPress(event.getPlayer(), "fenix", null, 100, (Player) event.getRightClicked()).runTaskTimer(plugin, 0L, 1L);
+                new LongPress(event.getPlayer(), null, 100, (Player) event.getRightClicked()).runTaskTimer(plugin, 0L, 1L);
             }
         }
     }
 
+    /**
+     * ノックダウンメソッドを呼び出す
+     * @param event イベント
+     */
     @EventHandler
     public void EntityDamageEvent(EntityDamageEvent event){
         knockDown(event, null);
     }
 
+    /**
+     * ノックダウンメソッドを呼び出す
+     * @param event イベント
+     */
     @EventHandler
     public void EntityDamagedEntity(EntityDamageByEntityEvent event) {
         knockDown(event,event.getDamager());
     }
 
+    /**
+     * プレイヤーがノックダウンするか判断したのち、する場合はノックダウンさせる
+     * @param event イベント
+     * @param entity ノックダウンするプレイヤー
+     */
     private void knockDown(EntityDamageEvent event,@Nullable Entity entity){
         Player damager = null;
 
+        //ノックダウン対象か判断
 
         if (entity != null && entity.getType().equals(EntityType.PLAYER)) {
             if (((Player) entity).hasPotionEffect(PotionEffectType.UNLUCK)) {
@@ -122,36 +146,40 @@ public class Listener implements org.bukkit.event.Listener {
         }
     }
 
-
+    /**
+     * 確殺とデスカートの生成
+     * @param event イベント
+     */
     @EventHandler
     public void PlayerDeathEvent(PlayerDeathEvent event){
+        event.getEntity().setGameMode(GameMode.SPECTATOR);
+
         Entity entity = event.getEntity().getWorld().spawn(event.getEntity().getLocation(),EntityType.MINECART_CHEST.getEntityClass());
         entity.setGlowing(true);
         entity.setInvulnerable(true);
         StorageMinecart deathCart = (StorageMinecart)entity;
-        for (int i = 0; i <= 10;i++){
-            if(V.knockDownBU.get(event.getEntity())[i] != null) {
-                if (V.knockDownBU.get(event.getEntity())[i].getType() != Material.FILLED_MAP) {
-                    deathCart.getInventory().setItem(i, V.knockDownBU.get(event.getEntity())[i]);
-                }
+
+        FileConfiguration config = plugin.getServer().getPluginManager().getPlugin("BattleInventory").getConfig();
+        List<Integer> allowList = config.getIntegerList("AllowSlot");
+        for(int i = 0; i < allowList.size(); i++){
+            if (V.knockDownBU.get(event.getEntity())[allowList.get(i)].getType() != Material.FILLED_MAP) {
+                deathCart.getInventory().setItem(i , V.knockDownBU.get(event.getEntity())[allowList.get(i)]);
             }
         }
-        deathCart.getInventory().setItem(11, V.knockDownBU.get(event.getEntity())[18]);
-        deathCart.getInventory().setItem(18, V.knockDownBU.get(event.getEntity())[19]);
-        deathCart.getInventory().setItem(19, V.knockDownBU.get(event.getEntity())[27]);
-        deathCart.getInventory().setItem(20, V.knockDownBU.get(event.getEntity())[28]);
 
-        deathCart.getInventory().setItem(24, V.knockDownBU.get(event.getEntity())[21]);
+        deathCart.getInventory().setItem(24, V.knockDownBU.get(event.getEntity())[config.getInt("HeadSlot")]);
         deathCart.setCustomName(event.getEntity().getName());
         try {
-            ItemStack chest = V.knockDownBU.get(event.getEntity())[22];
+            ItemStack chest = V.knockDownBU.get(event.getEntity())[config.getInt("ChestSlot")];
             Damageable chestD = (Damageable) chest.getItemMeta();
             chestD.setDamage(0);
             chest.setItemMeta(chestD);
             deathCart.getInventory().setItem(25, chest);
         }catch (Exception e){}
-        deathCart.getInventory().setItem(26, V.knockDownBU.get(event.getEntity())[23]);
-        deathCart.getInventory().setItem(21,V.knockDownBU.get(event.getEntity())[40]);
+        deathCart.getInventory().setItem(26, V.knockDownBU.get(event.getEntity())[config.getInt("BootsSlot")]);
+        if(V.knockDownBU.get(event.getEntity())[40].getType() != Material.FILLED_MAP) {
+            deathCart.getInventory().setItem(23, V.knockDownBU.get(event.getEntity())[40]);
+        }
         event.getEntity().getInventory().clear();
 
 
@@ -161,6 +189,10 @@ public class Listener implements org.bukkit.event.Listener {
         event.getEntity().sendMessage("数字ボタンを押すとほかの人のところにTPできるぞ!!");
     }
 
+    /**
+     * プレイヤーの姿勢を泳がせる
+     * @param event
+     */
     @EventHandler
     public void EntityToggleSwimEvent(EntityToggleSwimEvent event){
         event.setCancelled(true);

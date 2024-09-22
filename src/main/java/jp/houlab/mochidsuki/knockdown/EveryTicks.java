@@ -10,6 +10,7 @@ import com.google.common.collect.Lists;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -18,6 +19,10 @@ import java.util.List;
 import static jp.houlab.mochidsuki.knockdown.Main.manager;
 import static jp.houlab.mochidsuki.knockdown.Main.plugin;
 
+/**
+ * ノックダウン中のプレイヤーの姿勢を制御し、行動を制限する。
+ * @author Mochidsuki
+ */
 public class EveryTicks extends BukkitRunnable {
     @Override
     public void run() {
@@ -31,35 +36,14 @@ public class EveryTicks extends BukkitRunnable {
                     }
                 }
 
-
                 if (player.getLocation().add(0, 1, 0).getBlock().getType() == Material.AIR) {
                     player.sendBlockChange(player.getLocation().add(0, 1, 0), Material.BARRIER.createBlockData());
                 }
 
+                player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE,3,1,false,false));
 
                 player.setSneaking(true);
 
-                /*
-                PacketContainer packet = manager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
-                packet.getIntegers().write(0, player.getEntityId());
-
-                WrappedDataWatcher.Serializer serializer = WrappedDataWatcher.Registry.get(Integer.class);
-
-
-                List<WrappedDataValue> values = Lists.newArrayList(
-                        new WrappedDataValue(6, serializer, EnumWrappers.EntityPose.SWIMMING.ordinal())
-                );
-                packet.getDataValueCollectionModifier().write(0,values);
-
-                for (Player player1: plugin.getServer().getOnlinePlayers()) {
-                    try {
-                        ProtocolLibrary.getProtocolManager().sendServerPacket(player1, packet);
-                    } catch (Exception e) {
-                        System.out.println("There was an issue with one of the glowing enchants!");
-                    }
-                }
-
-                 */
             }
         }
     }

@@ -20,24 +20,35 @@ import java.awt.*;
 import java.time.Duration;
 import java.util.Collections;
 
-
+/**
+ * プレイヤーの長押しを検知、管理、UI表示、長押し完了後の動作を行う
+ * @author Mochidsuki
+ */
 public class LongPress extends BukkitRunnable {
     double use = 0;
     Player player;
-    String type;
     Material item;
     double time;
     Player fenixPlayer;
 
-    public LongPress(Player p, String t, Material i, double ti, Player player1){
+    /**
+     * コンストラクタ
+     * @param p 実行者
+     * @param i アイテムの種類
+     * @param ti 実行時間
+     * @param player1 実行先のプレイヤー
+     */
+    public LongPress(Player p, Material i, double ti, Player player1){
         player = p;
-        type = t;
         item = i;
         time = ti;
         fenixPlayer = player1;
         player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_ACTIVATE,1f, (float) 2);
     }
 
+    /**
+     * 実行メソッド
+     */
     @Override
     public void run() {
         if (player.isSneaking()) {
@@ -65,7 +76,7 @@ public class LongPress extends BukkitRunnable {
                 use = 0;
                 fenixPlayer.removePotionEffect(PotionEffectType.UNLUCK);
                 fenixPlayer.removePotionEffect(PotionEffectType.HEALTH_BOOST);
-                fenixPlayer.setHealth(2);
+                fenixPlayer.setHealth(10);
                 fenixPlayer.setFoodLevel(10);
                 player.getLocation().getWorld().stopSound(SoundStop.named(Sound.BLOCK_BEACON_AMBIENT));
                 player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT,1f, (float) 2);

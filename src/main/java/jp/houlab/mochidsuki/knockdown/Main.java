@@ -9,11 +9,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
 
+/**
+ * メインクラス
+ */
 public final class Main extends JavaPlugin {
     public static Plugin plugin;
     public static ProtocolManager manager;
 
-
+    /**
+     * 起動時の初期化処理
+     */
     @Override
     public void onEnable() {
         // Plugin startup logic
@@ -25,12 +30,18 @@ public final class Main extends JavaPlugin {
         manager = ProtocolLibrary.getProtocolManager();
     }
 
+    /**
+     * 終了
+     */
     @Override
     public void onDisable() {
         // Plugin shutdown logic
     }
 }
 
+/**
+ * ノックダウン中のプレイヤーのインベントリをバックアップする。
+ */
 class V{
     static HashMap<Player, ItemStack[]> knockDownBU = new HashMap<>();
 }
