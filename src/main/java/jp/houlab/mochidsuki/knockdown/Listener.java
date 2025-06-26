@@ -48,7 +48,7 @@ public class Listener implements org.bukkit.event.Listener {
         if(event.getRightClicked().getType() == EntityType.PLAYER) {
             Team team = event.getPlayer().getScoreboard().getPlayerTeam(event.getPlayer());
 
-            if (team.hasPlayer((OfflinePlayer) event.getRightClicked()) && event.getPlayer().getLocation().distance(event.getRightClicked().getLocation()) < 2 && ((Player)event.getRightClicked()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer().hasPotionEffect(PotionEffectType.SLOW))) {
+            if ((team == null || ((Player)event.getRightClicked()).getScoreboard().getPlayerTeam((Player) event.getRightClicked()) == null ||  team.hasPlayer((OfflinePlayer) event.getRightClicked())) && event.getPlayer().getLocation().distance(event.getRightClicked().getLocation()) < 2 && ((Player)event.getRightClicked()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer().hasPotionEffect(PotionEffectType.SLOW))) {
                 new LongPress(event.getPlayer(), null, 100, (Player) event.getRightClicked()).runTaskTimer(plugin, 0L, 1L);
             }
         }
@@ -114,6 +114,10 @@ public class Listener implements org.bukkit.event.Listener {
                         for (int i = 0; i < itemStacks.length; i++) {
                             itemStacks[i] = victim.getInventory().getItem(i);
                         }
+                        itemStacks[40] = victim.getInventory().getItemInOffHand();
+                        itemStacks[36] = victim.getInventory().getItem(config.getInt("HeadSlot"));
+                        itemStacks[37] = victim.getInventory().getItem(config.getInt("ChestSlot"));
+                        itemStacks[39] = victim.getInventory().getItem(config.getInt("BootsSlot"));
                         V.knockDownBU.put(victim, itemStacks);
                         victim.updateInventory();
                         victim.addPotionEffect(new PotionEffect(PotionEffectType.UNLUCK, 999999999, 0, true, true));
@@ -177,8 +181,12 @@ public class Listener implements org.bukkit.event.Listener {
 
         List<Integer> allowList = config.getIntegerList("AllowSlot");
         for(int i = 0; i < allowList.size(); i++){
-            if (V.knockDownBU.get(event.getEntity())[allowList.get(i)].getType() != Material.FILLED_MAP) {
-                deathCart.getInventory().setItem(i , V.knockDownBU.get(event.getEntity())[allowList.get(i)]);
+            int num = allowList.get(i);
+            if(num == -106){
+                num = 40;
+            }
+            if (V.knockDownBU.get(event.getEntity())[num] != null &&V.knockDownBU.get(event.getEntity())[num].getType() != Material.FILLED_MAP) {
+                deathCart.getInventory().setItem(i , V.knockDownBU.get(event.getEntity())[num]);
             }
         }
 
@@ -192,9 +200,6 @@ public class Listener implements org.bukkit.event.Listener {
             deathCart.getInventory().setItem(25, chest);
         }catch (Exception e){}
         deathCart.getInventory().setItem(26, V.knockDownBU.get(event.getEntity())[config.getInt("BootsSlot")]);
-        if(V.knockDownBU.get(event.getEntity())[40].getType() != Material.FILLED_MAP) {
-            deathCart.getInventory().setItem(23, V.knockDownBU.get(event.getEntity())[40]);
-        }
         event.getEntity().getInventory().clear();
 
         //Victim->Scoreスコア移行
