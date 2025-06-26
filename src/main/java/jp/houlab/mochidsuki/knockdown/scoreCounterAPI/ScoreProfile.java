@@ -76,4 +76,12 @@ public class ScoreProfile {
     public void setRankScore(int rankScore) {
         this.rankScore = rankScore;
     }
+
+    public void reset(){
+        this.killScore = 0;
+        this.deathScore = 0;
+        this.assistScore = 0;
+        this.damageScore = 0;
+        this.rankScore = 0;
+    }
 }

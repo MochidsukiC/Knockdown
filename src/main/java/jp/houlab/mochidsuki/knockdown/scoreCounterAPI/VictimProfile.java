@@ -20,8 +20,8 @@ public class VictimProfile {
 
 
     private Player knocker;
-    private HashSet<Player> damager;
-    private HashSet<Player> assistant;
+    private final HashSet<Player> damager = new HashSet<>();
+    private HashSet<Player> assistant = new HashSet<>();
     private final HashMap<Player,BukkitTask> damagerSchedulerList = new HashMap<>();
 
     public void addDamager(Player player) {
@@ -58,4 +58,5 @@ public class VictimProfile {
     public void setAssistant(HashSet<Player> assistant) {
         this.assistant = assistant;
     }
+
 }

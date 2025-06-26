@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.List;
 
+import static jp.houlab.mochidsuki.battleinventory.Main.config;
 import static jp.houlab.mochidsuki.knockdown.Main.plugin;
 import static jp.houlab.mochidsuki.knockdown.scoreCounterAPI.ScoreProfile.scoreProfiles;
 import static jp.houlab.mochidsuki.knockdown.scoreCounterAPI.VictimProfile.victimProfiles;
@@ -80,8 +81,8 @@ public class Listener implements org.bukkit.event.Listener {
         Player damager = null;
         //ノックダウン対象か判断
 
-        if (event.getEntity().getType().equals(EntityType.PLAYER)) {
-            if (((Player) event.getEntity()).hasPotionEffect(PotionEffectType.UNLUCK)) {
+        if (entity != null && entity.getType().equals(EntityType.PLAYER)) {
+            if (((Player) entity).hasPotionEffect(PotionEffectType.UNLUCK)) {
                 event.setCancelled(true);
                 return;
             }
@@ -143,10 +144,12 @@ public class Listener implements org.bukkit.event.Listener {
                         }
                         if (livers == 0) {
                             for (String entry : playerTeam.getEntries()) {
-                                if (victim.getServer().getOnlinePlayers().contains(Bukkit.getPlayer(entry)) && Bukkit.getPlayer(entry).getGameMode().equals(GameMode.SURVIVAL)) {
-                                    Bukkit.getPlayer(entry).setHealth(0);
+                                if (plugin.getServer().getOfflinePlayer(entry).isOnline()) {
+                                    if(Bukkit.getPlayer(entry).getGameMode().equals(GameMode.SURVIVAL)) {
+                                        Bukkit.getPlayer(entry).setHealth(0);
+                                    }
+                                    Bukkit.getPlayer(entry).sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
                                 }
-                                Bukkit.getPlayer(entry).sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
                                 scoreProfiles.get(Bukkit.getPlayer(entry)).setRankScore(jp.houlab.mochidsuki.battleroyalecore3.V.getTeamCount());
 
                             }
@@ -171,7 +174,7 @@ public class Listener implements org.bukkit.event.Listener {
         entity.setInvulnerable(true);
         StorageMinecart deathCart = (StorageMinecart)entity;
 
-        FileConfiguration config = plugin.getServer().getPluginManager().getPlugin("BattleInventory").getConfig();
+
         List<Integer> allowList = config.getIntegerList("AllowSlot");
         for(int i = 0; i < allowList.size(); i++){
             if (V.knockDownBU.get(event.getEntity())[allowList.get(i)].getType() != Material.FILLED_MAP) {
