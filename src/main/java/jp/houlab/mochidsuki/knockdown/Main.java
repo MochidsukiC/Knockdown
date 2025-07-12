@@ -2,6 +2,7 @@ package jp.houlab.mochidsuki.knockdown;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 public final class Main extends JavaPlugin {
     public static Plugin plugin;
     public static ProtocolManager manager;
+    public static FileConfiguration config;
 
     /**
      * 起動時の初期化処理
@@ -26,6 +28,11 @@ public final class Main extends JavaPlugin {
 
         new EveryTicks().runTaskTimer(this, 1L, 1L);
         plugin = this;
+
+        saveDefaultConfig();
+        config = getConfig();
+
+        getCommand("watchscore").setExecutor(new CommandListener() );
 
         manager = ProtocolLibrary.getProtocolManager();
     }

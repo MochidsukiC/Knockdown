@@ -1,8 +1,12 @@
 package jp.houlab.mochidsuki.knockdown.scoreCounterAPI;
 
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
+import java.util.UUID;
+
+import static jp.houlab.mochidsuki.battleroyalecore3.Main.plugin;
 
 public class ScoreProfile {
     /**
@@ -10,13 +14,13 @@ public class ScoreProfile {
      * Key - 対象プレイヤー
      * Value - プロファイル
      */
-    static final public HashMap<Player, ScoreProfile> scoreProfiles = new HashMap<>();
+    static final public HashMap<UUID, ScoreProfile> scoreProfiles = new HashMap<>();
 
-    private int killScore;
-    private int deathScore;
-    private int assistScore;
-    private double damageScore;
-    private int rankScore;
+    private int killScore = 0;
+    private int deathScore = 0;
+    private int assistScore = 0;
+    private double damageScore = 0;
+    private int rankScore = 0;
 
 
 
@@ -62,11 +66,7 @@ public class ScoreProfile {
     }
 
     public void addDamageScore(double damageScore) {
-        if(damageScore != 0) {
-            this.damageScore = this.damageScore + damageScore;
-        }else {
-            this.damageScore = damageScore;
-        }
+        this.damageScore = this.damageScore + damageScore;
     }
 
     public int getRankScore() {
@@ -83,5 +83,22 @@ public class ScoreProfile {
         this.assistScore = 0;
         this.damageScore = 0;
         this.rankScore = 0;
+    }
+
+    public void sendScore(Player player){
+        int rank = getRankScore();
+        if(rank == 0){
+            rank = 1;
+        }
+
+        player.sendMessage("戦績====================");
+        player.sendMessage("順位　　　 : "+ rank);
+        player.sendMessage("キル数　　 : "+ getKillScore());
+        player.sendMessage("アシスト数 : "+ getAssistScore());
+        player.sendMessage("ダメージ数 : "+ (int)getDamageScore());
+        player.sendMessage("デス数　　 : "+ getDeathScore());
+        player.sendMessage("=======================");
+
+
     }
 }

@@ -3,11 +3,11 @@ package jp.houlab.mochidsuki.knockdown;
 import jp.houlab.mochidsuki.knockdown.scoreCounterAPI.ScoreProfile;
 import jp.houlab.mochidsuki.knockdown.scoreCounterAPI.VictimProfile;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Arrow;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.StorageMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -16,8 +16,12 @@ import org.bukkit.event.entity.EntityToggleSwimEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.loot.LootContext;
+import org.bukkit.loot.LootTable;
+import org.bukkit.loot.Lootable;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -25,8 +29,7 @@ import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Team;
 
 import javax.annotation.Nullable;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 import static jp.houlab.mochidsuki.battleinventory.Main.config;
 import static jp.houlab.mochidsuki.knockdown.Main.plugin;
@@ -75,14 +78,14 @@ public class Listener implements org.bukkit.event.Listener {
     /**
      * プレイヤーがノックダウンするか判断したのち、する場合はノックダウンさせる
      * @param event イベント
-     * @param entity 攻撃者
+     * @param damagedEntity 攻撃者
      */
-    private void knockDown(EntityDamageEvent event,@Nullable Entity entity){
+    private void knockDown(EntityDamageEvent event,@Nullable Entity damagedEntity){
         Player damager = null;
         //ノックダウン対象か判断
 
-        if (entity != null && entity.getType().equals(EntityType.PLAYER)) {
-            if (((Player) entity).hasPotionEffect(PotionEffectType.UNLUCK)) {
+        if (damagedEntity != null && damagedEntity.getType().equals(EntityType.PLAYER)) {
+            if (((Player) damagedEntity).hasPotionEffect(PotionEffectType.UNLUCK)) {
                 event.setCancelled(true);
                 return;
             }
@@ -94,18 +97,32 @@ public class Listener implements org.bukkit.event.Listener {
 
         if (event.getEntity().getType().equals(EntityType.PLAYER)) {
             Player victim = (Player) event.getEntity();
-            if (entity != null && (entity.getType() == EntityType.PLAYER || entity.getType() == EntityType.ARROW)) {
-                if (entity.getType() == EntityType.PLAYER) {
-                    damager = (Player) entity;
-                } else {
-                    damager = (Player) ((Arrow) entity).getShooter();
+
+            if (damagedEntity != null && (damagedEntity.getType() == EntityType.PLAYER || damagedEntity.getType() == EntityType.ARROW || damagedEntity.getType() == EntityType.FIREBALL)) {
+                switch (damagedEntity.getType()){
+                    case PLAYER:{
+                        damager = (Player) damagedEntity;
+                        break;
+                    }
+                    case ARROW:{
+                        if(((Arrow) damagedEntity).getShooter() instanceof Player) {
+                            damager = (Player) ((Arrow) damagedEntity).getShooter();
+                        }
+                        break;
+                    }
+                    case FIREBALL:{
+                        if(((Fireball) damagedEntity).getShooter() instanceof Player) {
+                            damager = (Player) ((Fireball) damagedEntity).getShooter();
+                        }
+                    }
                 }
             }
-            victimProfiles.get(victim).addDamager(damager);
-
 
             double damage = event.getFinalDamage();
-            scoreProfiles.get(victim).addDamageScore(damage);
+            if (damager != null && !damager.getUniqueId().equals(victim.getUniqueId())) {
+                victimProfiles.get(victim.getUniqueId()).addDamager(damager);
+                scoreProfiles.get(damager.getUniqueId()).addDamageScore(damage);
+            }
             if (!(victim.hasPotionEffect(PotionEffectType.UNLUCK))) {
                 if ((victim.getHealth() <= damage)) {
                     if (((Player) event.getEntity()).getInventory().getItemInMainHand().getType() != Material.TOTEM_OF_UNDYING && ((Player) event.getEntity()).getInventory().getItemInOffHand().getType() != Material.TOTEM_OF_UNDYING) {
@@ -126,38 +143,57 @@ public class Listener implements org.bukkit.event.Listener {
                         victim.setHealth(40);
                         event.setCancelled(true);
                         victim.getInventory().clear();
-                        if(entity != null){
+                        if(damager != null){
                             damager.sendMessage(victim.getName() + "をノックダウン!");
-                            damager.playSound(entity, Sound.BLOCK_ANVIL_PLACE, 100, 0);
+                            damager.playSound(damager, Sound.BLOCK_ANVIL_PLACE, 100, 0);
                         }
 
-                        victimProfiles.get(victim).setKnocker(damager);
-                        victimProfiles.get(victim).setAssistant(victimProfiles.get(victim).getDamager());
+                        if(damager != null) {
+                            victimProfiles.get(victim.getUniqueId()).setKnocker(damager.getUniqueId());
+                        }else {
+                            List<UUID> damagers  = new ArrayList<>(victimProfiles.get(victim.getUniqueId()).getDamager());
+                            if(!damagers.isEmpty()) {
+                                victimProfiles.get(victim.getUniqueId()).setKnocker(damagers.get(victimProfiles.get(victim.getUniqueId()).getDamager().size() - 1));
+                            }
+                        }
+                        victimProfiles.get(victim.getUniqueId()).setAssistant(victimProfiles.get(victim.getUniqueId()).getDamager());
+
 
 
                         //部隊全滅
                         Team playerTeam = victim.getScoreboard().getEntryTeam(victim.getName());
+
                         int livers = 0;
-                        for (String entry : playerTeam.getEntries()) {
-                            if (victim.getServer().getOnlinePlayers().contains(Bukkit.getPlayer(entry))) {
-                                Player teammate = Bukkit.getPlayer(entry);
-                                if (teammate.getGameMode().equals(GameMode.SURVIVAL) && !teammate.hasPotionEffect(PotionEffectType.UNLUCK)) {
-                                    livers++;
+                        if(playerTeam != null) {
+                            for (String entry : playerTeam.getEntries()) {
+                                if (plugin.getServer().getOfflinePlayer(entry).isOnline()) {
+                                    Player teammate = Bukkit.getPlayer(entry);
+                                    if (teammate.getGameMode().equals(GameMode.SURVIVAL) && !teammate.hasPotionEffect(PotionEffectType.UNLUCK)) {
+                                        livers++;
+                                    }
                                 }
                             }
                         }
                         if (livers == 0) {
-                            for (String entry : playerTeam.getEntries()) {
-                                if (plugin.getServer().getOfflinePlayer(entry).isOnline()) {
-                                    if(Bukkit.getPlayer(entry).getGameMode().equals(GameMode.SURVIVAL)) {
-                                        Bukkit.getPlayer(entry).setHealth(0);
+                            if(playerTeam != null) {
+                                for (String entry : playerTeam.getEntries()) {
+                                    if (plugin.getServer().getOfflinePlayer(entry).isOnline()) {
+                                        if (Bukkit.getPlayer(entry).getGameMode().equals(GameMode.SURVIVAL) || Bukkit.getPlayer(entry).getGameMode().equals(GameMode.ADVENTURE)) {
+                                            Bukkit.getPlayer(entry).setHealth(0);
+                                        }
+                                        Bukkit.getPlayer(entry).sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
                                     }
-                                    Bukkit.getPlayer(entry).sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
+                                    if(scoreProfiles.containsKey(Bukkit.getOfflinePlayer(entry).getUniqueId())) {
+                                        scoreProfiles.get(Bukkit.getOfflinePlayer(entry).getUniqueId()).setRankScore(jp.houlab.mochidsuki.battleroyalecore3.V.getTeamCount());
+                                    }
                                 }
-                                scoreProfiles.get(Bukkit.getPlayer(entry)).setRankScore(jp.houlab.mochidsuki.battleroyalecore3.V.getTeamCount());
-
+                            }else {
+                                victim.setHealth(0);
+                                victim.sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
+                                scoreProfiles.get(victim.getUniqueId()).setRankScore(jp.houlab.mochidsuki.battleroyalecore3.V.getTeamCount());
                             }
                         }
+
                     }
 
                 }
@@ -202,14 +238,42 @@ public class Listener implements org.bukkit.event.Listener {
         deathCart.getInventory().setItem(26, V.knockDownBU.get(event.getEntity())[config.getInt("BootsSlot")]);
         event.getEntity().getInventory().clear();
 
+        try {
+            Block block = new Location(event.getEntity().getServer().getWorld(Main.config.getString("deathCardPlusItemLocation.world")),Main.config.getInt("deathCardPlusItemLocation.x"),Main.config.getInt("deathCardPlusItemLocation.y"),Main.config.getInt("deathCardPlusItemLocation.z")).getBlock();
+            Material material = block.getType();
+            Chest chest = (Chest) block.getState();
+            int r = new Random().nextInt(chest.getInventory().getSize());
+            deathCart.getInventory().setItem(23,chest.getInventory().getItem(r));
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+
         //Victim->Scoreスコア移行
-        scoreProfiles.get(victimProfiles.get(event.getPlayer()).getKnocker()).addKillScore();
-        for (Player player : victimProfiles.get(event.getEntity()).getAssistant()) {
-            if(!player.getName().equals(victimProfiles.get(event.getPlayer()).getKnocker().getName())){
-                scoreProfiles.get(player).addAssistScore();
+        // 変更後
+        //Victim->Scoreスコア移行
+        Player knocker = null;
+        if(victimProfiles.get(event.getPlayer().getUniqueId()).getKnocker() != null && Bukkit.getOfflinePlayer(victimProfiles.get(event.getPlayer().getUniqueId()).getKnocker()).isOnline()) {
+            knocker = Bukkit.getPlayer(victimProfiles.get(event.getPlayer().getUniqueId()).getKnocker());
+        }
+
+        // ★ 攻撃者(knocker)がnullでないことを確認してからキルスコアを加算
+        if (knocker != null) {
+            scoreProfiles.get(knocker.getUniqueId()).addKillScore();
+        }
+
+        for (UUID assistant : victimProfiles.get(event.getEntity().getUniqueId()).getAssistant()) {
+            // ★ アシストしたプレイヤーがnullでないことを確認
+            if (assistant == null) {
+                continue;
+            }
+            // ★ 攻撃者がいない場合、または攻撃者とアシスト者が違う場合にスコアを加算
+            if (knocker == null || !assistant.equals(knocker.getUniqueId())) {
+                scoreProfiles.get(assistant).addAssistScore();
             }
         }
-        scoreProfiles.get(event.getEntity()).addDeathScore();
+        scoreProfiles.get(event.getEntity().getUniqueId()).addDeathScore();
 
 
         event.getEntity().sendMessage("死んでしまった!!");
@@ -231,8 +295,8 @@ public class Listener implements org.bukkit.event.Listener {
      */
     @EventHandler
     public void PlayerLoginEvent(PlayerLoginEvent event){
-        victimProfiles.put(event.getPlayer(),new VictimProfile());
-        scoreProfiles.put(event.getPlayer(),new ScoreProfile());
+        victimProfiles.put(event.getPlayer().getUniqueId(),new VictimProfile());
+        scoreProfiles.put(event.getPlayer().getUniqueId(),new ScoreProfile());
     }
 
 }

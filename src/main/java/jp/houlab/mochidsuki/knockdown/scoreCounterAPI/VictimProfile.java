@@ -5,8 +5,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashMap;
-import java.util.HashSet;
+import javax.annotation.Nullable;
+import java.util.*;
 
 import static jp.houlab.mochidsuki.knockdown.Main.plugin;
 
@@ -16,47 +16,55 @@ public class VictimProfile {
      * Key - 対象プレイヤー
      * Value - プロファイル
      */
-    static final public HashMap<Player, VictimProfile> victimProfiles = new HashMap<>();
+    static final public HashMap<UUID, VictimProfile> victimProfiles = new HashMap<>();
 
 
-    private Player knocker;
-    private final HashSet<Player> damager = new HashSet<>();
-    private HashSet<Player> assistant = new HashSet<>();
-    private final HashMap<Player,BukkitTask> damagerSchedulerList = new HashMap<>();
+    private UUID knocker;
+    private Set<UUID> damager = new LinkedHashSet<>();
+    private Set<UUID> assistant = new HashSet<>();
+    private HashMap<UUID,BukkitTask> damagerSchedulerList = new HashMap<>();
 
     public void addDamager(Player player) {
-        damager.add(player);
+        damager.remove(player.getUniqueId());
+        damager.add(player.getUniqueId());
         BukkitTask damagerScheduler = new BukkitRunnable() {
                 public void run() {
-                    damager.remove(player);
+                    damager.remove(player.getUniqueId());
                 }
             }.runTaskLater(plugin,400);
 
-        if(damagerSchedulerList.containsKey(player)) {
-            damagerSchedulerList.get(player).cancel();
-            damagerSchedulerList.remove(player);
-            damagerSchedulerList.put(player,damagerScheduler);
+        if(damagerSchedulerList.containsKey(player.getUniqueId())) {
+            damagerSchedulerList.get(player.getUniqueId()).cancel();
+            damagerSchedulerList.remove(player.getUniqueId());
         }
+        damagerSchedulerList.put(player.getUniqueId(),damagerScheduler);
     }
-    public HashSet<Player> getDamager() {
+    public Set<UUID> getDamager() {
         return damager;
     }
 
 
-    public Player getKnocker() {
+    public @Nullable UUID getKnocker() {
         return knocker;
     }
 
-    public void setKnocker(Player knocker) {
+    public void setKnocker(UUID knocker) {
         this.knocker = knocker;
     }
 
-    public HashSet<Player> getAssistant() {
+    public Set<UUID> getAssistant() {
         return assistant;
     }
 
-    public void setAssistant(HashSet<Player> assistant) {
+    public void setAssistant(Set<UUID> assistant) {
         this.assistant = assistant;
     }
 
+    public void reset(){
+        knocker = null;
+        damager = new LinkedHashSet<>();
+        assistant = new HashSet<>();
+        damagerSchedulerList = new HashMap<>();
+
+    }
 }
