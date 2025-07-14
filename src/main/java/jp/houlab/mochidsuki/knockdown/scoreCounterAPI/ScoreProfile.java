@@ -1,8 +1,13 @@
 package jp.houlab.mochidsuki.knockdown.scoreCounterAPI;
 
+import jp.houlab.mochidsuki.knockdown.Main;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Team;
 
+import java.io.*;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -99,6 +104,120 @@ public class ScoreProfile {
         player.sendMessage("デス数　　 : "+ getDeathScore());
         player.sendMessage("=======================");
 
+
+    }
+
+
+    public static void outputScoreCsv(){
+        // ★★★ 改善点1: ファイルはプラグインのデータフォルダに保存するのがベストプラクティスです ★★★
+        File dataFolder = Main.plugin.getDataFolder();
+        // データフォルダが存在しない場合は作成します
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        File scoreFile = new File(dataFolder, "Score.csv");
+
+        // try-with-resources を使用して、リソースを自動的にクローズし、コードを安全にします
+        try (FileWriter fw = new FileWriter(scoreFile, false);
+             PrintWriter pw = new PrintWriter(new BufferedWriter(fw))) {
+
+            pw.println("TeamName,rank,kill,damage,score");
+
+            for (Team team : Main.plugin.getServer().getScoreboardManager().getMainScoreboard().getTeams()) {
+                Player teamMember = null;
+                for (String name : team.getEntries()) {
+                    // プレイヤーがオンラインかどうかを先にチェックします
+                    Player onlinePlayer = Bukkit.getPlayer(name);
+                    if (onlinePlayer != null) {
+                        teamMember = onlinePlayer;
+                        break;
+                    }
+                }
+
+                if (teamMember != null) {
+                    ScoreProfile scoreProfile = ScoreProfile.scoreProfiles.get(teamMember.getUniqueId());
+                    // scoreProfileがnullの場合を考慮します
+                    if (scoreProfile == null) continue;
+
+                    int rank = scoreProfile.getRankScore();
+                    int kill = 0;
+                    int damage = 0;
+                    if(rank == 0){
+                        rank = 1;
+                    }
+
+
+                    for(String name : team.getEntries()) {
+                        Player teamOther = Bukkit.getPlayer(name);
+                        if (teamOther != null) {
+                            ScoreProfile otherProfile = ScoreProfile.scoreProfiles.get(teamOther.getUniqueId());
+                            if (otherProfile != null) {
+                                kill += otherProfile.getKillScore();
+                                damage += (int) otherProfile.getDamageScore();
+                            }
+                        }
+                    }
+                    int score = kill; // スコアの計算はキル数から開始
+
+                    // switch式はよりモダンなアロー構文に書き換え可能です
+                    switch (rank){
+                        case 1 -> score += 12;
+                        case 2 -> score += 9;
+                        case 3 -> score += 7;
+                        case 4 -> score += 6;
+                        case 5 -> score += 5;
+                        case 6 -> score += 4;
+                        case 7 -> score += 3;
+                        case 8 -> score += 2;
+                        case 9 -> score += 1;
+                    }
+                    pw.println(team.getName() + "," + rank + "," + kill + "," + damage +"," + score);
+                }
+            }
+
+            pw.println();
+            pw.println("PlayerName,rank,kill,assist,damage,score");
+
+            // getOfflinePlayers()は非常に重い処理なので、ループの外で一度だけ呼び出します
+            for(OfflinePlayer p : Main.plugin.getServer().getOfflinePlayers()) {
+                ScoreProfile profile = ScoreProfile.scoreProfiles.get(p.getUniqueId());
+                if(profile != null) {
+                    int rank = profile.getRankScore();
+                    int kill = profile.getKillScore();
+                    int assist = profile.getAssistScore();
+                    // ★★★ バグ修正: アシスト数ではなく、ダメージ数を取得します ★★★
+                    int damage = (int) profile.getDamageScore();
+                    int score = kill;
+
+                    if(rank == 0){
+                        rank = 1;
+                    }
+
+                    switch (rank){
+                        case 1 -> score += 12;
+                        case 2 -> score += 9;
+                        case 3 -> score += 7;
+                        case 4 -> score += 6;
+                        case 5 -> score += 5;
+                        case 6 -> score += 4;
+                        case 7 -> score += 3;
+                        case 8 -> score += 2;
+                        case 9 -> score += 1;
+                    }
+
+                    pw.println(p.getName() + "," + rank + "," + kill + "," + assist + "," + damage +"," + score);
+                }
+            }
+
+        } catch (IOException e){
+            e.printStackTrace();
+            // エラーが発生した場合はここで処理を終了します
+            return;
+        }
+
+        // ★★★【ご要望の箇所】★★★
+        // ファイルの書き込みが完了した後、ファイルを読み取り専用に設定します
+        System.out.println("csvファイルを出力し、読み取り専用にしました: " + scoreFile.getAbsolutePath());
 
     }
 }

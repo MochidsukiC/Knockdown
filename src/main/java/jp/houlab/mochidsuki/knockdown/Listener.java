@@ -98,7 +98,7 @@ public class Listener implements org.bukkit.event.Listener {
         if (event.getEntity().getType().equals(EntityType.PLAYER)) {
             Player victim = (Player) event.getEntity();
 
-            if (damagedEntity != null && (damagedEntity.getType() == EntityType.PLAYER || damagedEntity.getType() == EntityType.ARROW || damagedEntity.getType() == EntityType.FIREBALL)) {
+            if (damagedEntity != null && (damagedEntity.getType() == EntityType.PLAYER || damagedEntity.getType() == EntityType.ARROW || damagedEntity.getType() == EntityType.FIREBALL || damagedEntity.getType() == EntityType.SPECTRAL_ARROW || damagedEntity.getType() == EntityType.TRIDENT)) {
                 switch (damagedEntity.getType()){
                     case PLAYER:{
                         damager = (Player) damagedEntity;
@@ -114,6 +114,19 @@ public class Listener implements org.bukkit.event.Listener {
                         if(((Fireball) damagedEntity).getShooter() instanceof Player) {
                             damager = (Player) ((Fireball) damagedEntity).getShooter();
                         }
+                        break;
+                    }
+                    case SPECTRAL_ARROW:{
+                        if(((SpectralArrow) damagedEntity).getShooter() instanceof Player){
+                            damager = (Player) ((SpectralArrow) damagedEntity).getShooter();
+                        }
+                        break;
+                    }
+                    case TRIDENT:{
+                        if(((Trident) damagedEntity).getShooter() instanceof Player){
+                            damager = (Player) ((Trident) damagedEntity).getShooter();
+                        }
+                        break;
                     }
                 }
             }
