@@ -64,6 +64,9 @@ public class VictimProfile {
         knocker = null;
         damager = new LinkedHashSet<>();
         assistant = new HashSet<>();
+        for (BukkitTask task : damagerSchedulerList.values()) {
+            task.cancel();
+        }
         damagerSchedulerList = new HashMap<>();
 
     }

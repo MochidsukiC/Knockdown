@@ -1,6 +1,7 @@
 package jp.houlab.mochidsuki.knockdown;
 
 
+import com.comphenix.protocol.wrappers.EnumWrappers;
 import net.kyori.adventure.sound.SoundStop;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -78,6 +79,10 @@ public class LongPress extends BukkitRunnable {
                 fenixPlayer.removePotionEffect(PotionEffectType.HEALTH_BOOST);
                 fenixPlayer.setHealth(10);
                 fenixPlayer.setFoodLevel(10);
+
+                // 姿勢をSTANDINGに戻す（全プレイヤーに通知）
+                Main.sendPosePacket(fenixPlayer, EnumWrappers.EntityPose.STANDING);
+
                 player.getLocation().getWorld().stopSound(SoundStop.named(Sound.BLOCK_BEACON_AMBIENT));
                 player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT,1f, (float) 2);
                 for(int i = 0; i < V.knockDownBU.get(fenixPlayer).length; i++){
