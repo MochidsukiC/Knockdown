@@ -17,9 +17,12 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import org.bukkit.inventory.ItemStack;
+
 import java.awt.*;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Set;
 
 /**
  * プレイヤーの長押しを検知、管理、UI表示、長押し完了後の動作を行う
@@ -52,7 +55,7 @@ public class LongPress extends BukkitRunnable {
      */
     @Override
     public void run() {
-        if (player.isSneaking()) {
+        if (player.isSneaking() && !player.hasPotionEffect(PotionEffectType.UNLUCK)) {
             use = use + 1;
             player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 2, 10, true, false));
             player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 2, 200, true, false));
@@ -85,8 +88,20 @@ public class LongPress extends BukkitRunnable {
 
                 player.getLocation().getWorld().stopSound(SoundStop.named(Sound.BLOCK_BEACON_AMBIENT));
                 player.getLocation().getWorld().playSound(fenixPlayer.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT,1f, (float) 2);
-                for(int i = 0; i < V.knockDownBU.get(fenixPlayer).length; i++){
-                    fenixPlayer.getInventory().setItem(i,V.knockDownBU.get(fenixPlayer)[i]);
+                Set<Material> whitelist = Listener.getInventoryWhitelist();
+                ItemStack[] backup = V.knockDownBU.get(fenixPlayer);
+                for (int i = 0; i < backup.length; i++) {
+                    ItemStack current = (i == 40)
+                        ? fenixPlayer.getInventory().getItemInOffHand()
+                        : fenixPlayer.getInventory().getItem(i);
+                    if (current != null && whitelist.contains(current.getType())) {
+                        continue; // ホワイトリスト: 復旧しない
+                    }
+                    if (i == 40) {
+                        fenixPlayer.getInventory().setItemInOffHand(backup[i]);
+                    } else {
+                        fenixPlayer.getInventory().setItem(i, backup[i]);
+                    }
                 }
                 for(int i =0;i<=2;i++){
                     for(int ii = 0;ii<=2;ii++){

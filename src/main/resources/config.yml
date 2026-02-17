@@ -1,3 +1,21 @@
+# 敵味方関係なくダウンプレイヤーを蘇生可能にするかどうか
+# true: 敵チームのプレイヤーも蘇生可能
+# false: 味方チームのみ蘇生可能 (デフォルト)
+allowEnemyRevive: false
+
+# ダウン中のプレイヤーを発光させるかどうか
+allowDownPlayerGlowing: false
+
+# 部隊全滅時に全員をキルするかどうか
+# true: 部隊全員がノックダウン状態になると全員死亡 (デフォルト)
+# false: 部隊全員がノックダウンしてもキルされず、ノック状態が続く
+teamWipeKill: true
+
+# ノックダウン時にインベントリに残すアイテムのホワイトリスト
+# Material名で指定 (例: FILLED_MAP, COMPASS)
+inventoryWhitelist:
+  - FILLED_MAP
+
 deathCardPlusItemLocation:
   world: world
   x: 1035

@@ -13,8 +13,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
 
-import static jp.houlab.mochidsuki.knockdown.Main.manager;
-import static jp.houlab.mochidsuki.knockdown.Main.plugin;
+import static jp.houlab.mochidsuki.knockdown.Main.*;
 
 public class EveryTicks extends BukkitRunnable {
 
@@ -22,8 +21,14 @@ public class EveryTicks extends BukkitRunnable {
     private static final Map<UUID, Integer> shulkerMap = new HashMap<>();
     private final Random random = new Random();
 
+    private static int tick;
+
+
     @Override
     public void run() {
+        tick++;
+        if(tick % 200 == 0) tick = 0;
+
         Set<UUID> onlineUuids = new HashSet<>();
 
         for(Player player : plugin.getServer().getOnlinePlayers()) {
@@ -34,6 +39,9 @@ public class EveryTicks extends BukkitRunnable {
 
                 player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 3, 1, false, false));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 3, 128, false, false));
+
+                if(config.getBoolean("allowDownPlayerGlowing") && tick == 0) player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 20, 1, false, false));
+
 
                 // 水中や飛行中は自然な姿勢になるのでゴースト処理は行わない
                 if (player.isInWater() || player.isGliding()) {
@@ -109,10 +117,99 @@ public class EveryTicks extends BukkitRunnable {
         }
     }
 
+    // 1.21.2+ 用のパケットタイプをキャッシュ
+    private static PacketType positionSyncPacketType = null;
+    private static boolean positionSyncChecked = false;
+
     /**
      * ゴーストシュルカー移動 (本人にのみ送信)
+     * 1.21.2+ では ENTITY_POSITION_SYNC を使用
      */
     private void teleportGhostShulker(Player player, int entityId, Location loc) {
+        try {
+            // 1.21.2+ 用パケットタイプを動的に取得
+            if (!positionSyncChecked) {
+                positionSyncChecked = true;
+                try {
+                    // リフレクションで ENTITY_POSITION_SYNC を取得
+                    positionSyncPacketType = (PacketType) PacketType.Play.Server.class
+                            .getField("ENTITY_POSITION_SYNC").get(null);
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                    // 存在しない場合は null のまま
+                    positionSyncPacketType = null;
+                }
+            }
+
+            if (Main.isVersion1_21_2OrHigher && positionSyncPacketType != null) {
+                // 1.21.2+ 用パケット構造
+                // PositionMoveRotation という内部クラスを使用する構造に変更された
+                try {
+                    PacketContainer teleportPacket = manager.createPacket(positionSyncPacketType);
+
+                    // VarInt でエンティティID
+                    teleportPacket.getIntegers().write(0, entityId);
+
+                    // 1.21.2+ では位置情報が内部クラスでラップされている可能性
+                    // StructureModifier で全フィールドを確認
+                    var modifier = teleportPacket.getModifier();
+
+                    // Vec3D (位置) を書き込み - インデックス1
+                    if (modifier.size() > 1) {
+                        Object positionObj = modifier.read(1);
+                        if (positionObj != null) {
+                            // Vec3D の場合、リフレクションで設定
+                            Class<?> vec3Class = positionObj.getClass();
+                            try {
+                                var constructor = vec3Class.getConstructor(double.class, double.class, double.class);
+                                Object newPos = constructor.newInstance(loc.getX(), loc.getY(), loc.getZ());
+                                modifier.write(1, newPos);
+                            } catch (Exception e) {
+                                // フォールバック: フィールドを直接設定
+                            }
+                        }
+                    }
+
+                    // Vec3D (速度) を書き込み - インデックス2
+                    if (modifier.size() > 2) {
+                        Object velocityObj = modifier.read(2);
+                        if (velocityObj != null) {
+                            Class<?> vec3Class = velocityObj.getClass();
+                            try {
+                                var constructor = vec3Class.getConstructor(double.class, double.class, double.class);
+                                Object newVel = constructor.newInstance(0.0, 0.0, 0.0);
+                                modifier.write(2, newVel);
+                            } catch (Exception e) {
+                                // フォールバック
+                            }
+                        }
+                    }
+
+                    // Yaw, Pitch (Float)
+                    var floatModifier = teleportPacket.getModifier().withType(Float.class);
+                    floatModifier.writeSafely(0, 0.0f);
+                    floatModifier.writeSafely(1, 0.0f);
+
+                    // On Ground
+                    teleportPacket.getBooleans().writeSafely(0, false);
+
+                    manager.sendServerPacket(player, teleportPacket);
+                } catch (Exception e) {
+                    // フォールバック: ENTITY_TELEPORT を試す
+                    sendLegacyTeleportPacket(player, entityId, loc);
+                }
+            } else {
+                sendLegacyTeleportPacket(player, entityId, loc);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 1.20.x 用のテレポートパケットを送信
+     */
+    private void sendLegacyTeleportPacket(Player player, int entityId, Location loc) {
         try {
             PacketContainer teleportPacket = manager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
             teleportPacket.getIntegers().write(0, entityId);
@@ -126,9 +223,8 @@ public class EveryTicks extends BukkitRunnable {
             teleportPacket.getBooleans().write(0, false);
 
             manager.sendServerPacket(player, teleportPacket);
-
         } catch (Exception e) {
-            e.printStackTrace();
+            // 無視 (パケット構造が異なる場合)
         }
     }
 

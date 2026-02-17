@@ -56,10 +56,31 @@ public class Listener implements org.bukkit.event.Listener {
     @EventHandler
     public void PlayerInteractEntityEvent(PlayerInteractEntityEvent event){
         if(event.getRightClicked().getType() == EntityType.PLAYER) {
-            Team team = event.getPlayer().getScoreboard().getPlayerTeam(event.getPlayer());
+            Player reviver = event.getPlayer();
+            Player target = (Player) event.getRightClicked();
+            Team team = reviver.getScoreboard().getPlayerTeam(reviver);
+            Team targetTeam = target.getScoreboard().getPlayerTeam(target);
 
-            if ((team == null || ((Player)event.getRightClicked()).getScoreboard().getPlayerTeam((Player) event.getRightClicked()) == null ||  team.hasPlayer((OfflinePlayer) event.getRightClicked())) && event.getPlayer().getLocation().distance(event.getRightClicked().getLocation()) < 2 && ((Player)event.getRightClicked()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer()).hasPotionEffect(PotionEffectType.UNLUCK) && !(event.getPlayer().hasPotionEffect(PotionEffectType.SLOW))) {
-                new LongPress(event.getPlayer(), null, 100, (Player) event.getRightClicked()).runTaskTimer(plugin, 0L, 1L);
+            // 敵味方関係なく蘇生可能かどうかの設定
+            boolean allowEnemyRevive = Main.config.getBoolean("allowEnemyRevive", false);
+
+            // チーム条件: 敵蘇生許可 or チームなし or 同じチーム
+            boolean teamValid = allowEnemyRevive || team == null || targetTeam == null || team.hasPlayer(target);
+
+            // 距離条件: 2ブロック以内
+            boolean distanceValid = reviver.getLocation().distance(target.getLocation()) < 2;
+
+            // ターゲットがダウン状態であること
+            boolean targetIsDown = target.hasPotionEffect(PotionEffectType.UNLUCK);
+
+            // 蘇生者がダウン状態でないこと
+            boolean reviverNotDown = !reviver.hasPotionEffect(PotionEffectType.UNLUCK);
+
+            // 蘇生者が蘇生中でないこと（移動速度低下がないこと）
+            boolean reviverNotBusy = !reviver.hasPotionEffect(PotionEffectType.SLOW);
+
+            if (teamValid && distanceValid && targetIsDown && reviverNotDown && reviverNotBusy) {
+                new LongPress(reviver, null, 100, target).runTaskTimer(plugin, 0L, 1L);
             }
         }
     }
@@ -128,16 +149,34 @@ public class Listener implements org.bukkit.event.Listener {
      * @param damager 最後にダメージを与えたプレイヤー (nullの場合あり)
      */
     private void executeKnockdown(Player victim, @Nullable Player damager) {
-        // インベントリのバックアップ
+        // ホワイトリスト読み込み
+        Set<Material> whitelist = getInventoryWhitelist();
+
+        // インベントリのバックアップ（ホワイトリスト除外）
         ItemStack[] itemStacks = new ItemStack[41];
         for (int i = 0; i < 40; i++) { // 0-39: メインインベントリ+防具スロット
-            itemStacks[i] = victim.getInventory().getItem(i);
+            ItemStack item = victim.getInventory().getItem(i);
+            if (item != null && whitelist.contains(item.getType())) {
+                itemStacks[i] = null; // ホワイトリスト: バックアップしない
+            } else {
+                itemStacks[i] = item;
+            }
         }
-        itemStacks[40] = victim.getInventory().getItemInOffHand(); // 40: オフハンド
+        ItemStack offhand = victim.getInventory().getItemInOffHand();
+        itemStacks[40] = (offhand != null && whitelist.contains(offhand.getType())) ? null : offhand;
         V.knockDownBU.put(victim, itemStacks);
 
-        // ノックダウン状態にする
-        victim.getInventory().clear();
+        // ホワイトリスト以外のスロットをクリア
+        for (int i = 0; i < 40; i++) {
+            ItemStack item = victim.getInventory().getItem(i);
+            if (item == null || !whitelist.contains(item.getType())) {
+                victim.getInventory().setItem(i, null);
+            }
+        }
+        ItemStack offhandItem = victim.getInventory().getItemInOffHand();
+        if (offhandItem == null || !whitelist.contains(offhandItem.getType())) {
+            victim.getInventory().setItemInOffHand(null);
+        }
         victim.addPotionEffect(new PotionEffect(PotionEffectType.UNLUCK, Integer.MAX_VALUE, 0, true, true));
         victim.setFoodLevel(0);
         victim.addPotionEffect(new PotionEffect(PotionEffectType.HEALTH_BOOST, Integer.MAX_VALUE, 4, true, true));
@@ -214,12 +253,18 @@ public class Listener implements org.bukkit.event.Listener {
     }
 
     private void checkTeamWipe(Player victim) {
+        // 部隊全滅時にキルするかどうかの設定
+        boolean teamWipeKill = Main.config.getBoolean("teamWipeKill", true);
+
         Team playerTeam = victim.getScoreboard().getEntryTeam(victim.getName());
         if (playerTeam == null) {
-            victim.setHealth(0);
-            victim.sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
-            if (scoreProfiles.containsKey(victim.getUniqueId())) {
-                scoreProfiles.get(victim.getUniqueId()).setRankScore(jp.houlab.mochidsuki.battleroyalecore3.V.getTeamCount());
+            // ソロプレイヤーの場合
+            if (teamWipeKill) {
+                victim.setHealth(0);
+                victim.sendTitle(ChatColor.RED + "部隊全滅", "", 20, 40, 10);
+                if (scoreProfiles.containsKey(victim.getUniqueId())) {
+                    scoreProfiles.get(victim.getUniqueId()).setRankScore(jp.houlab.mochidsuki.battleroyalecore3.V.getTeamCount());
+                }
             }
             return;
         }
@@ -236,7 +281,7 @@ public class Listener implements org.bukkit.event.Listener {
             }
         }
 
-        if (isTeamWiped) {
+        if (isTeamWiped && teamWipeKill) {
             for (String entry : playerTeam.getEntries()) {
                 OfflinePlayer offlineTeammate = Bukkit.getOfflinePlayer(entry);
                 if (offlineTeammate.isOnline()) {
@@ -356,6 +401,16 @@ public class Listener implements org.bukkit.event.Listener {
     public void PlayerLoginEvent(PlayerLoginEvent event){
         victimProfiles.put(event.getPlayer().getUniqueId(),new VictimProfile());
         scoreProfiles.put(event.getPlayer().getUniqueId(),new ScoreProfile());
+    }
+
+    static Set<Material> getInventoryWhitelist() {
+        Set<Material> whitelist = new HashSet<>();
+        for (String name : Main.config.getStringList("inventoryWhitelist")) {
+            try {
+                whitelist.add(Material.valueOf(name));
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return whitelist;
     }
 
 }
